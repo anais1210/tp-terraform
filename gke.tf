@@ -9,7 +9,7 @@ variable "gke_password" {
 }
 
 variable "gke_num_nodes" {
-  default     = 2
+  default     = 1 
   description = "number of gke nodes"
 }
 
@@ -23,8 +23,7 @@ resource "google_container_cluster" "primary" {
   # node pool and immediately delete it.
   remove_default_node_pool = true
   initial_node_count       = 1
-
-  network    = google_compute_network.vpc.name
+  network    = google_compute_network.MyNetwork.name
   subnetwork = google_compute_subnetwork.subnet.name
 }
 
@@ -53,6 +52,61 @@ resource "google_container_node_pool" "primary_nodes" {
     }
   }
 }
+resource "google_compute_disk" "storage" {
+  name  = "storage-disk"
+  image = "debian-11-bullseye-v20220719"
+  labels = {
+    environment = "dev"
+  }
+  physical_block_size_bytes = 4096
+}
+
+resource "kubernetes_deployment" "nginx" {
+  metadata {
+    name = "scalable-nginx"
+    labels = {
+      App = "ScalableNginx"
+    }
+  }
+
+  spec {
+    replicas = 2
+    selector {
+      match_labels = {
+        App = "ScalableNginx"
+      }
+    }
+    template {
+      metadata {
+        labels = {
+          App = "ScalableNginx"
+        }
+      }
+      spec {
+        container {
+          image = "nginx:1.7.8"
+          name  = "example"
+
+          port {
+            container_port = 80
+          }
+
+          resources {
+            limits = {
+              cpu    = "0.5"
+              memory = "512Mi"
+            }
+            requests = {
+              cpu    = "250m"
+              memory = "50Mi"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 
 
 # # Kubernetes provider
